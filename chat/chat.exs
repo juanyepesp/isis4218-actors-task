@@ -2,26 +2,30 @@ defmodule Chat do
   @exit_message "-1"
   @starting_users 5
 
-  def add_user({pid, user}) do
+  # ------------------------------
+  # Chatroom Actions
+  # ------------------------------
+
+  defp add_user({pid, user}) do
     chatroom_pid = Process.whereis(:chatroom)
     send(chatroom_pid, {:add_user, {pid, user}})
   end
 
-  def user_delete({pid, user}) do
+  defp user_delete({pid, user}) do
     chatroom_pid = Process.whereis(:chatroom)
     send(chatroom_pid, {:delete_user, {pid, user}})
   end
 
-  def write_message(message) do
+  defp write_message(message) do
     chatroom_pid = Process.whereis(:chatroom)
     send(chatroom_pid, {:write_message, message})
   end
 
-  def chatroom_loop(all_msgs, pids, users_left) when length(pids) == 0 and users_left == 0 do
+  defp chatroom_loop(all_msgs, pids, users_left) when length(pids) == 0 and users_left == 0 do
     all_msgs |> Enum.reverse()
   end
 
-  def chatroom_loop(all_msgs, pids, users_left) do
+  defp chatroom_loop(all_msgs, pids, users_left) do
     receive do
       {:add_user, {pid, user}} ->
         msg = "--- #{user} joined the chat ---"
@@ -40,19 +44,18 @@ defmodule Chat do
 
       _ ->
         chatroom_loop(all_msgs, pids, users_left)
-        # after
-        #   1000 ->
-        #     IO.inspect(length(pids))
-        #     IO.inspect(total_users)
-        #     chatroom_loop(all_msgs, pids, total_users)
     end
   end
 
-  def send_message_to_all(pids, message) do
+  # ------------------------------
+  # User Actions
+  # ------------------------------
+
+  defp send_message_to_all(pids, message) do
     Enum.each(pids, fn pid -> send(pid, {:message, message}) end)
   end
 
-  def start_users do
+  defp start_users do
     names = [
       "Nicolas",
       "Emma",
@@ -72,7 +75,7 @@ defmodule Chat do
     |> Task.await_many()
   end
 
-  def user_actions(user) do
+  defp user_actions(user) do
     pid = self()
     add_user({pid, user})
     send_messages(pid, user)
@@ -80,7 +83,7 @@ defmodule Chat do
     {user, actor_messages([])}
   end
 
-  def actor_messages(messages) do
+  defp actor_messages(messages) do
     receive do
       {:message, message} ->
         actor_messages([message | messages])
@@ -90,7 +93,7 @@ defmodule Chat do
     end
   end
 
-  def send_messages(pid, user) do
+  defp send_messages(pid, user) do
     {user, message} = generate_random_message(user)
 
     unless message == "#{user}: #{@exit_message}" do
@@ -100,26 +103,30 @@ defmodule Chat do
     end
   end
 
+  # ------------------------------
+  # Misc.
+  # ------------------------------
+
   defp generate_random_message(user) do
     message =
       [
         "Hello, I'm here.",
         "This chatroom seems lively!",
-        # "I'm here to chat and have fun!",
-        # "I hope everyone's having a good day!",
-        # "Let's make this chatroom even better!",
-        # "I'm excited to be here!",
-        # "This chatroom is awesome!",
-        # "I'm having a great time!",
-        # "I think I'll stay a while.",
-        # "I'm new here, what's up?",
-        # "I hope to make some friends here.",
-        # "Looking forward to some interesting conversations!",
-        # "Hey everyone, I'm here!",
-        # "This chatroom looks cool!",
-        # "I'm new here, what's up?",
-        # "I hope to make some friends here.",
-        # "Looking forward to some interesting conversations!",
+        "I'm here to chat and have fun!",
+        "I hope everyone's having a good day!",
+        "Let's make this chatroom even better!",
+        "I'm excited to be here!",
+        "This chatroom is awesome!",
+        "I'm having a great time!",
+        "I think I'll stay a while.",
+        "I'm new here, what's up?",
+        "I hope to make some friends here.",
+        "Looking forward to some interesting conversations!",
+        "Hey everyone, I'm here!",
+        "This chatroom looks cool!",
+        "I'm new here, what's up?",
+        "I hope to make some friends here.",
+        "Looking forward to some interesting conversations!",
         @exit_message
       ]
       |> Enum.random()
@@ -127,26 +134,35 @@ defmodule Chat do
     {user, "#{user}: #{message}"}
   end
 
-  def show_user_logs(user, user_logs) do
+  defp show_user_logs(user, user_logs) do
     IO.puts("\n")
     IO.puts("-------------------------")
     IO.puts("Messages as seen by user: #{user}")
     IO.inspect(user_logs)
   end
 
-  def show_chat_log(chat_log) do
+  defp show_chat_log(chat_log) do
     IO.puts("\n")
     IO.puts("-------------------------")
     IO.puts("All messages")
     IO.inspect(chat_log)
   end
 
+  # ------------------------------
+  # Main function
+  # ------------------------------
+
   def start do
+    # First we create a Task for the Chatroom
     chat_task = Task.async(fn -> chatroom_loop([], [], @starting_users) end)
     chat_pid = Map.get(chat_task, :pid)
     Process.register(chat_pid, :chatroom)
+
+    # Then we create each user
     users_logs = start_users()
     Enum.each(users_logs, fn {user, user_log} -> show_user_logs(user, user_log) end)
+
+    # Finally we collect all the logs
     chat_log = Task.await(chat_task, :infinity)
     show_chat_log(chat_log)
     :ok
